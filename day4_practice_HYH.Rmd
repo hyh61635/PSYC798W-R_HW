@@ -1,0 +1,108 @@
+---
+title: "Day 4 Practice"
+output: html_document
+---
+
+1. Read in the data base of phoneme pairs from Wedel, Kaplan, and Jackson (2013).  The relative path from the working directory of this project is: "scottdata/CognitionPaperModifiedData.csv"
+
+```{r eval=TRUE}
+mydata <- read.csv("C://Users/HYH/Desktop/projects/r_programming_bsos/scottdata/CognitionPaperModifiedData.csv")
+summary(mydata)
+```
+
+2. Read in the data using the WRONG function.  What does it look like?
+
+mydata <- read.table("scottdata/CognitionPaperModifiedData.csv")
+summary(mydata)
+mydata <- read.delim("scottdata/CognitionPaperModifiedData.csv")
+summary(mydata)
+
+3. Change some (or all) of the column names.  Provide a table that links original column names with the current/new column names.
+
+```{r}
+oldnames <- colnames(mydata)
+mycolnames <- colnames(mydata)
+mycolnames[7:17] <- c("Minpairs.ALL", "Minpairs.BETWEEN", "Minpairs.WITHIN", "Entropy.ALL", "Entropy.WITHIN", "Entropy.SEG", "Entropy.BIPHONE","SegTok.HI","SegTok.LO","SegType.HI","SegType.LO")
+data.frame(oldnames, mycolnames)
+```
+
+4. Locate NAs.  Remove all rows containing NAs.
+
+```{r}
+summary(mydata)
+mydata.na <- apply(mydata, 1, function(x){any(is.na(x))})
+summary(mydata.na)
+mydata.rmna <- mydata[!mydata.na,]
+summary(mydata.rmna)
+
+# mydata.rmna <- mydata[complete.cases(mydata),]
+```
+
+5. Recode the "Corpus" variable in the following way:
+Am = American
+Du = Dutch
+Fr = French
+Ge = German
+HK = Cantonese
+Ko = Korean
+RP = British
+Sl = Slovakian
+Sp = Spanish
+
+```{r}
+summary(mydata)
+levels(mydata$Corpus)
+levels(mydata$Corpus) <- c("American", "Dutch", "French", "German", "Cantonese", "Korean", "British", "Slovakian", "Spanish")
+levels(mydata$Corpus)
+head(mydata)
+```
+
+6. Run a logistic regression, using `glm()`, where "Merged" status is the (binary) dependent variable, and "WithinMinPairs" is the predictor.
+  - Hint #1: the basic usage of `glm()` is:
+```{r eval=FALSE}
+results <- glm(DV ~ predictor1 + predictor2 + ...  , 
+               data = dataframe.object,
+               family = "binomial")
+```
+  - Hint #2: you need the DV to be 0s and 1s, not a factor.
+
+```{r eval=TRUE}
+summary(mydata)
+class(mydata$Merged)
+mydata$DV <- ifelse(mydata$Merged == "Merged", 1, 0)  ## create a new numeric variable
+# mydata$DV2 <- as.numeric(mydata$Merged) - 1 ## wrong order, but a possibility.  a bit risky
+class(mydata$DV)
+mydata.logit <- glm(DV~WithinMinPairs, data=mydata, family="binomial")
+summary(mydata.logit)
+```
+
+7. Use `summary()` to display the results.
+
+summary(mydata.logit)
+
+8. Using INLINE code, report the estimate, standard error, and p-value for the WithinMinPairs coefficient.  This will look something like:
+
+```{r}
+mydata.sum <- summary(mydata.logit)
+names(mydata.sum)
+mydata.sum$coefficients
+class(mydata.sum$coefficients)
+mydata.sum$coefficients[2,1]
+Est. <- mydata.sum$coefficients["WithinMinPairs", "Estimate"]
+# Std.err <- mydata.sum$coefficients["WithinMinPairs", "Std.Error"]  what does subscript-out-of-bounds mean?
+Std.err <- mydata.sum$coefficients[2,2]
+p.value <- mydata.sum$coefficients["WithinMinPairs", "Pr(>|z|)"]
+data.frame(Est., Std.err, p.value)
+
+Est. <- round(Est., digits=4)
+Std.err <- round(Std.err, digits=4)
+p.value <- round(p.value, digits=4)
+data.frame(Est., Std.err, p.value)
+```
+
+# The estimate for the WithinMinPairs coefficient was `r round(est, 4)`, with a standard error of `r std.err ` and a p of `r round(p-value, 3)`.
+
+EXTRA CREDIT: figure out how to display the above results with only a few decimal places
+
+HINT: use `str()` to figure out how to extract these values.
+

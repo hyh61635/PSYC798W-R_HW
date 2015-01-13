@@ -1,0 +1,134 @@
+---
+title: "Day 5 Practice"
+output: html_document
+---
+
+0. Get the `french_fries` data into "long" format.  Call the new value variable "rating" and the factor with all the descriptors "flavor". Re-code the labels of the `treatment` variable to be "oil1", "oil2", and "oil3".
+
+library(reshape2)
+myff <- french_fries
+summary(myff)
+head(myff)
+
+```{r}
+myff.melt <- melt(myff, id.vars = 1:4, value.name = "rating", variable.name = "flavor")
+head(myff.melt)
+summary(myff.melt)
+levels(myff.melt$treatment) <- c("oil1", "oil2", "oil3")
+head(myff.melt)
+```
+
+1. Use `ggplot` to plot a histogram and a density plot (separately) for `rating` 
+   - Try some different values for `binwidth` for the histogram.
+   - Try some different values for `adjust` for the density plot.
+
+```{r}
+library(ggplot2)
+ggplot(myff.melt, aes(x=rating))+geom_histogram()
+ggplot(myff.melt, aes(x=rating))+geom_histogram(binwidth=1)
+
+ggplot(myff.melt, aes(x=rating))+geom_density()
+ggplot(myff.melt, aes(x=rating))+geom_density(adjust=.5, fill="dark green")
+```
+
+2. How does the distribution look?  Try transforming the variable and try to get it to look more normal (i.e., more Gaussian).  If it already looks normal, do something to it to make it look non-normal.
+
+```{r}
+ggplot(myff.melt, aes(log(rating)))+geom_density()
+ggplot(myff.melt, aes(sqrt(rating)))+geom_density()
+ggplot(myff.melt, aes(log(rating)^2))+geom_density()
+```
+
+3. Let's break this up by the `treatment` factor
+   - Plot it as a density plot, mapping `color` to the factor
+   - Same, but try using `fill` instead of `color`
+   - Same, using `linetype` instead of `color`
+   - Plot the data as a boxplot, with the factor as `x` and the numerical variable as `y`
+
+```{r}
+ggplot(myff.melt, aes(sqrt(rating)))+geom_density(aes(color=treatment), size=1)
+ggplot(myff.melt, aes(sqrt(rating)))+geom_density(aes(fill=treatment), size=1)
+ggplot(myff.melt, aes(sqrt(rating)))+geom_density(aes(linetype=treatment), size=1)
+
+ggplot(myff.melt, aes(x=treatment, y=rating))+geom_boxplot()
+ggplot(myff.melt, aes(x=treatment, y=rating))+geom_boxplot()+coord_flip()
+ggplot(myff.melt, aes(x=treatment, y=rating))+geom_boxplot(aes(color=treatment))
+ggplot(myff.melt, aes(x=treatment, y=rating))+geom_boxplot(aes(fill=treatment))
+
+ggplot(myff.melt, aes(treatment, rating))+geom_boxplot(aes(fill=flavor))+facet_wrap(~flavor)
+ggplot(myff.melt, aes(x=treatment, y=rating))+geom_boxplot(aes(fill=flavor))+scale_fill_manual(values=c("forestgreen", "darkgoldenrod1", "darkblue", "firebrick2", "violetred"))+facet_wrap(~flavor)
+```
+
+4. Now let's look at breaking up a histogram across this factor.  With the same variables you used in #3:
+   - Plot a histogram, but use faceting to display them, one above the other.
+   - Try mapping the factor to `color` or `fill`, to see what that looks like.
+
+```{r}
+# ggplot(myff.melt, aes(rating))+geom_histogram(binwidth=.5)+facet_wrap(~treatment)
+ggplot(myff.melt, aes(rating))+geom_histogram(binwidth=.5)+facet_grid(treatment~.)
+
+ggplot(myff.melt, aes(rating))+geom_histogram(binwidth=.5, aes(color=treatment))
+ggplot(myff.melt, aes(rating))+geom_histogram(binwidth=.5, aes(fill=treatment))
+ggplot(myff.melt, aes(rating))+geom_histogram(binwidth=.5, aes(fill=treatment))+scale_fill_manual(values=c("forestgreen", "darkblue", "firebrick2"))
+ggplot(myff.melt, aes(rating))+geom_histogram(binwidth=.5, aes(fill=treatment))+scale_fill_manual(values=c("forestgreen", "darkblue", "firebrick2"))+facet_grid(treatment~.)
+
+ggplot(myff.melt, aes(rating))+geom_histogram(binwidth=.5, color="darkgreen", fill="white")+facet_grid(treatment~.)
+```
+
+5. Now cast the data back to where the different flavors are in differnet columns. Pick two of the flavor columns to explore
+   - Create a scatterplot, with one variable mapped to `x` and the other to `y`.
+   - Plot a "loess" smoother on top of the scatterplot
+   - Plot a regression line on top of the scatterplot (instead of the loess)
+
+```{r}
+myff.cast <- dcast(myff.melt, time+treatment+subject+rep~flavor, value.var="rating")
+head(myff.cast)
+summary(myff.cast)
+
+scatter1 <- ggplot(myff.cast, aes(x=potato, y=buttery))+geom_point(color="orangered3", size=3)+theme_minimal()
+scatter2 <- scatter1 + stat_smooth(level=0.99, fill="khaki3", size=.8, color="blue")
+scatter1 + stat_smooth(se=FALSE, size=.8, color="blue")
+scatter3 <- scatter1 + stat_smooth(method="lm", size=.8, color="blue")
+```
+
+6. With this same scatterplot, break it up by `treatment`
+   - Map `treatment` to `color`
+   - Facet by `treatment`
+
+```{r}
+scatter4 <- ggplot(myff.cast, aes(x=potato, y=buttery))+geom_point(aes(color=treatment), size=2)+theme_minimal()+scale_color_manual(values=c("forestgreen", "darkblue", "firebrick2"))
+scatter5 <- ggplot(myff.cast, aes(x=potato, y=buttery))+geom_point(size=2)+theme_minimal()+stat_smooth(method="lm", span=2)+facet_grid(treatment~.)
+```
+
+7. Output all of the plots above as a single PDF.
+
+```{r}
+pdf("day5_practice_plot_HYH.pdf", width=8, height=5)
+
+ggplot(myff.melt, aes(x=rating))+geom_histogram()
+ggplot(myff.melt, aes(x=rating))+geom_histogram(binwidth=1)
+ggplot(myff.melt, aes(x=rating))+geom_density()
+ggplot(myff.melt, aes(x=rating))+geom_density(adjust=.5, fill="dark green")
+
+ggplot(myff.melt, aes(log(rating)^2))+geom_density()
+
+ggplot(myff.melt, aes(sqrt(rating)))+geom_density(aes(color=treatment), size=1)
+ggplot(myff.melt, aes(sqrt(rating)))+geom_density(aes(fill=treatment), size=1)
+ggplot(myff.melt, aes(sqrt(rating)))+geom_density(aes(linetype=treatment), size=1)
+
+ggplot(myff.melt, aes(x=treatment, y=rating))+geom_boxplot(aes(fill=flavor))+scale_fill_manual(values=c("forestgreen", "darkgoldenrod1", "darkblue", "firebrick2", "violetred"))+facet_wrap(~flavor)
+
+ggplot(myff.melt, aes(rating))+geom_histogram(binwidth=.5)+facet_grid(treatment~.)
+ggplot(myff.melt, aes(rating))+geom_histogram(binwidth=.5, aes(color=treatment))
+ggplot(myff.melt, aes(rating))+geom_histogram(binwidth=.5, aes(fill=treatment))
+ggplot(myff.melt, aes(rating))+geom_histogram(binwidth=.5, color="darkgreen", fill="white")+facet_grid(treatment~.)
+
+ggplot(myff.cast, aes(x=potato, y=buttery))+geom_point(color="orangered3", size=3)+theme_minimal()
+ggplot(myff.cast, aes(x=potato, y=buttery))+geom_point(color="orangered3", size=3)+theme_minimal()+stat_smooth(level=0.99, fill="khaki3", size=.8, color="blue")
+ggplot(myff.cast, aes(x=potato, y=buttery))+geom_point(color="orangered3", size=3)+theme_minimal()+stat_smooth(method="lm", size=.8, color="blue")
+
+ggplot(myff.cast, aes(x=potato, y=buttery))+geom_point(aes(color=treatment), size=2)+theme_minimal()+scale_color_manual(values=c("forestgreen", "darkblue", "firebrick2"))
+ggplot(myff.cast, aes(x=potato, y=buttery))+geom_point(size=2)+theme_minimal()+stat_smooth(method="lm", span=2)+facet_grid(treatment~.)
+
+dev.off()
+```

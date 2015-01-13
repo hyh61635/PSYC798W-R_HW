@@ -1,0 +1,127 @@
+---
+title: "Day 3 Homework"
+output: html_document
+---
+
+The goal of this homework is to get practice with manipulating data.
+
+```{r}
+GSS_sub <- read.csv("C:/Users/HYH/Desktop/WINTER 2015/R_programming/GSS_subset7212.csv")
+myGSS <- GSS_sub
+library(reshape2)
+summary(myGSS)
+head(myGSS)
+```
+
+1. Make both a "wide" and a "long" version of your data
+
+```{r}
+## wider data.frame
+myGSS <- GSS_sub
+myGSS$RACE <- as.factor(myGSS$RACE)
+levels(myGSS$RACE) <- c("White","Black","Other")
+myGSS.cast <- dcast(myGSS, CASEID+FAIR+TRUST+YEAR+AGE+SEX+HISPANIC+EDUC+DEGREE+MARITAL ~ RACE, value.var = "HELPFUL")
+colnames(myGSS.cast)[11] <- "White_Helpful"
+colnames(myGSS.cast)[12] <- "Black_Helpful"
+colnames(myGSS.cast)[13] <- "Other_Helpful"
+head(myGSS.cast)
+
+## longer data.frame
+myGSS <- GSS_sub
+head(myGSS)
+myGSS.melt <- melt(myGSS, id.vars=c("CASEID","YEAR","AGE","SEX","RACE","HISPANIC","EDUC","DEGREE","MARITAL"), value.name="ordinalscale", variable.name="measurement.type")
+head(myGSS.melt)
+tail(myGSS.melt)
+```
+
+
+## -casting with a LOt of variables
+```{r eval=FALSE}
+
+mydata.wide <- dcast(mydata.long, [80 columns here] ~ split)
+
+columns.to.keep <- colnames(mydata.long)[1:80]
+columns.to.keep.pasted <- paste(colnames.to.keep, collapse = "+")
+my.cast.formula <- as.formula(paste(columns.to.keep.pasted, "~split"))
+class(my.cast.formula) # "formula"
+mydata.wide <- dcast(mydata.long, formula = my.cast.formula)
+
+```
+
+2. Transform a variable
+
+```{r}
+myGSS <- GSS_sub
+myGSS$AGE2 <- myGSS$AGE/10
+head(myGSS)
+summary(myGSS)
+```
+
+3. Recode a factor
+
+```{r}
+myGSS <- GSS_sub
+myGSS$MARITAL[myGSS$MARITAL==9] <- NA
+summary(myGSS)
+myGSS$MARITAL <- as.factor(myGSS$MARITAL)
+levels(myGSS$MARITAL) <- c("Married","Widowed","Divorced","Separated","Never Married")
+head(myGSS)
+summary(myGSS)
+```
+
+4. Add a new factor, where the levels are conditional on the values of some other variable. E.g., a factor of "high", "medium", and "low" based on thresholds for another variable.
+
+```{r}
+myGSS <- GSS_sub
+myGSS$AGE[myGSS$AGE>89 ] <- NA
+myGSS$AGECat<-cut(myGSS$AGE, br=c(0,31,61,90),  labels=c(1:3))
+levels(myGSS$AGECat) <- c("under 31", "31-60", "61 up")
+head(myGSS)
+summary(myGSS)
+```
+
+5. Reorder the levels of this new factor
+
+```{r}
+myGSS$AGECat <- relevel(myGSS$AGECat, "61 up")
+levels(myGSS$AGECat)
+head(myGSS)
+```
+
+6. Choose a factor that could be re-coded as multiple dimensions (recall the sepal/petal vs. length/width breakdown). If you don't have one, try to create one.  Now create two (or more) new factors that represent these dimensions.
+
+```{r}
+myGSS <- GSS_sub
+head(myGSS)
+myGSS.1 <- subset(myGSS, select=c("CASEID", "SEX", "RACE"))
+head(myGSS.1)
+
+myGSS.1$YOUNG.ARM <- (rnorm(57061)^2)*20
+myGSS.1$OLD.ARM <- (rnorm(57061)^2)*21
+myGSS.1$YOUNG.LEG <- (rnorm(57061)^2)*23
+myGSS.1$OLD.LEG <- (rnorm(57061)^2)*22
+
+myGSS.2 <- melt(myGSS.1, id.vars=c("CASEID","SEX", "RACE"), value.name="cm", variable.name="measurement.type")
+head(myGSS.2)
+
+myGSS.3 <- cbind(myGSS.2, colsplit(myGSS.2$measurement.type, pattern="\\.", names=c("Seniority", "BodyPart")))
+head(myGSS.3)
+tail(myGSS.3)
+```
+
+7. Using `dcast`, aggregate some variable into "cell means" of some kind.
+
+```{r}
+myGSS.agg1 <- dcast(myGSS.3, CASEID+SEX+RACE ~ BodyPart, value.var="cm", fun.aggregate = mean)
+head(myGSS.agg1)
+tail(myGSS.agg1)
+
+myGSS.agg2 <- dcast(myGSS.3, SEX+RACE ~ BodyPart, value.var="cm", fun.aggregate=mean)
+head(myGSS.agg2)
+tail(myGSS.agg2)
+```
+
+8.  Save all of the above in a well-documented R Markdown document.  Email me the .Rmd file (and if you use different or updated data from Day 2 Homework, send that to me, too).
+
+
+## try `ifelse` & `if` function
