@@ -1,0 +1,98 @@
+---
+title: "Day 8 Homework"
+output: html_document
+---
+
+GSS_sub <- read.csv("C:/Users/HYH/Desktop/WINTER 2015/R_programming/GSS_subset7212.csv")
+gss.sub <- GSS_sub
+summary(gss.sub)
+
+# Recode missing & top-coded values to NAs
+```{r}
+gss.sub$HELPFUL[gss.sub$HELPFUL < 1 | gss.sub$HELPFUL > 3] <- NA
+gss.sub$FAIR[gss.sub$FAIR < 1 | gss.sub$FAIR > 3] <- NA
+gss.sub$TRUST[gss.sub$TRUST < 1 | gss.sub$TRUST > 3] <- NA
+gss.sub$AGE[gss.sub$AGE > 89 ] <- NA
+gss.sub$EDUC[gss.sub$EDUC > 20 ] <- NA
+gss.sub$DEGREE <- gss.sub$DEGREE+1
+gss.sub$DEGREE[gss.sub$DEGREE > 5] <- NA
+gss.sub$MARITAL[gss.sub$MARITAL==9] <- NA
+summary(gss.sub)
+```
+
+# Remove rows containing NAs
+```{r}
+summary(gss.sub) # 50761 cases in total
+gss.sub[!complete.cases(gss.sub),]
+mygss <- na.omit(gss.sub)
+summary(mygss)
+nrow(mygss) # 34379 cases left
+```
+
+# Create age groups
+```{r}
+mygss$AGECAT <- cut(mygss$AGE, br=c(0,31,61,90),  labels=c(1:3))
+levels(mygss$AGECAT) <- c("18-31", "31-60", "61 up")
+```
+
+# Create social trust scale
+```{r}
+library(car)
+mygss$HELPFUL <- recode(mygss$HELPFUL, '"1"="3"; "2"="1"; "3"="2"')
+mygss$FAIR <- recode(mygss$FAIR, '"2"="3"; "3"="2"')
+mygss$TRUST <- recode(mygss$TRUST, '"1"="3"; "2"="1"; "3"="2"')
+
+mygss$SOCIAL.TRUST <- apply(mygss[,2:4], MARGIN=1, mean)
+summary(mygss)
+```
+
+1. Try to recreate the results of Homework 6 (or your intended results) using the `dplyr` functions.
+
+# Trend of social trust
+```{r}
+library(reshape2)
+library(dplyr)
+library(ggplot2)
+socialtrust.measures <- mygss %>%
+  melt(measure.vars = 2:4) %>%
+  group_by(variable, YEAR) %>%
+  summarize(mean.measures = mean(value))
+socialtrust.measures
+summary(socialtrust.measures)
+
+ggplot(socialtrust.measures, aes(x=YEAR, y=mean.measures, group=variable))+geom_line(aes(color=variable), size=1)+theme_minimal()+scale_color_manual(values=c("forestgreen", "darkblue", "firebrick2"))
+
+
+year.socialtrust <- mygss %>%
+  group_by(YEAR) %>%
+  summarize(mean.socialtrust= mean(SOCIAL.TRUST))
+year.socialtrust
+summary(year.socialtrust)
+
+ggplot(year.socialtrust, aes(x=YEAR, y=mean.socialtrust))+geom_line(color="orangered3", size=1)+theme_minimal()
+```
+
+2. Find another kind of analysis/transformation/summary stat that you want to apply across multiple groups in your data. Use the functions from `reshape2` and `dplyr` to get these results.
+
+```{r}
+age.socialtrust <- mygss %>%
+  group_by(AGECAT, YEAR) %>%
+  summarize(means = mean(SOCIAL.TRUST))
+age.socialtrust
+ggplot(age.socialtrust, aes(x=YEAR, y=means, group=AGECAT))+geom_line(aes(color=AGECAT), size=1)+theme_minimal()+scale_color_manual(values=c("forestgreen", "darkblue", "firebrick2"))
+```
+
+3. For one more practice, try another example of something like #2 (find another stat or grouping or something).
+
+```{r}
+mygss.1 <- filter(mygss, YEAR <= 1980)
+mygss.1$RACE <- as.factor(mygss.1$RACE)
+mygss.1$SEX <- as.factor(mygss.1$SEX)
+levels(mygss.1$RACE) <- c("White","Black","Other")
+levels(mygss.1$SEX) <- c("Male","Female")
+summary(mygss.1)
+
+mygss.1 %>%
+  group_by(RACE,SEX) %>%
+  summarize(max = max(EDUC), min = min(EDUC), mean = mean(EDUC))
+```
