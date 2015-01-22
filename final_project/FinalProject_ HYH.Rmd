@@ -1,0 +1,258 @@
+---
+title: "Final Project: Generalized Social Trust in the U.S. 1972-2012"
+output: html_document
+---
+
+> Course: PSYC798W_Winter2015: R Programming for Behavioral Sciences  
+Professor: Dr. Scott Jackson  
+Student: Hsiang-Yuan Ho
+
+```{r, eval=TRUE, echo=FALSE, results='hide', warning=FALSE, message=FALSE}
+GSS_sub <- read.csv("C:/Users/HYH/Desktop/WINTER 2015/R_programming/PSYC798W-R_HW/final_project/GSS_subset7212.csv")
+gss.sub <- GSS_sub
+summary(gss.sub)
+library(reshape2)
+library(ggplot2)
+library(dplyr)
+library(car)
+library(stargazer)
+library(relaimpo)
+```
+
+## Data Clean-up
+```{r, eval=TRUE, echo=FALSE, results='hide', warning=FALSE, message=FALSE}
+# Recode missing & top-coded values to NAs
+gss.sub$HELPFUL[gss.sub$HELPFUL < 1 | gss.sub$HELPFUL > 3] <- NA
+gss.sub$FAIR[gss.sub$FAIR < 1 | gss.sub$FAIR > 3] <- NA
+gss.sub$TRUST[gss.sub$TRUST < 1 | gss.sub$TRUST > 3] <- NA
+gss.sub$AGE[gss.sub$AGE > 89 ] <- NA
+gss.sub$EDUC[gss.sub$EDUC > 20 ] <- NA
+gss.sub$DEGREE <- gss.sub$DEGREE+1
+gss.sub$DEGREE[gss.sub$DEGREE > 5] <- NA
+gss.sub$MARITAL[gss.sub$MARITAL==9] <- NA
+
+# Remove rows containing NAs
+gss.sub[!complete.cases(gss.sub),]
+mygss <- na.omit(gss.sub)
+
+# Create age groups
+mygss$AGECAT <- cut(mygss$AGE, br=c(0,31,61,90),  labels=c(1:3))
+levels(mygss$AGECAT) <- c("18-31", "31-60", "61 up")
+
+# Create social trust scale
+mygss$HELPFUL <- recode(mygss$HELPFUL, '"1"="3"; "2"="1"; "3"="2"')
+mygss$FAIR <- recode(mygss$FAIR, '"2"="3"; "3"="2"')
+mygss$TRUST <- recode(mygss$TRUST, '"1"="3"; "2"="1"; "3"="2"')
+
+mygss$SOCIAL.TRUST <- apply(mygss[,2:4], MARGIN=1, mean)
+```
+
+I use General Social Survey (GSS) which has interviewed a nationally representative sub-population every one or two years since 1972 in the U.S. It documents from demographic information to public opinion and political attitudes.
+For this project, I extract smaples asked of social trust questions, leading to a total of `r nrow(mygss)` cases remained in data set.
+
+```{r, eval=TRUE, echo=FALSE, results='hide'}
+gss.year <- c(as.numeric(levels(as.factor(mygss$YEAR))))
+
+```
+
+Data was collected in `r gss.year`.
+
+## Descriptive Statistics
+
+**Demographics**
+```{r, eval=TRUE, echo=FALSE, results='hide'}
+prop <- function(x){
+  tb <- table(x)
+  output <- round(prop.table(tb)*100, 2)
+  output
+  }
+
+gss.male <- prop(mygss$SEX)[c(1)]
+gss.white <- prop(mygss$RACE)[c(1)]
+gss.black <- prop(mygss$RACE)[c(2)]
+gss.hs <- 100-(prop(mygss$DEGREE)[c(1)])
+gss.abcol <- prop(mygss$DEGREE)[c(4)] + prop(mygss$DEGREE)[c(5)]
+gss.mar <- (prop(mygss$MARITAL)[c(1)])
+gss.nemar <- (prop(mygss$MARITAL)[c(5)])
+```
+
+Participants are at least `r min(mygss$AGE)` years old with a mean age of `r round(mean(mygss$AGE))`. About `r gss.male`% are men. The majority is white (`r gss.white`%) and blacks account for `r gss.black`%. Most participants completed high school (`r gss.hs`%), but only `r gss.abcol`% have attained a bachelor's degree or higher. More than half (`r gss.mar`%) of participants are currently married, and another `r gss.nemar`% are never married.
+
+**Social trust components**
+
+I recode values of variables below so that higher scores represent higher degrees of perceived trust.
+
+* Helpful
+
+    Survey question: Would you say that most of the time people try to be helpful, or that they are mostly just looking out for themselves?
+
+Value  | Label
+-------|-----------
+   1   | Just look out for themselves
+   2   | Depends
+   3   | Try to be helpful 
+ *`r round(mean(mygss$HELPFUL), 2)`* | *Average score*
+
+* Fair
+
+    Survey question: Do you think most people would try to take advantage of you if they got a chance, or would they try to be fair?
+
+Value  | Label
+-------|-----------
+   1   | Would take advantage of you
+   2   | Depends
+   3   | Would try to be fair
+ *`r round(mean(mygss$FAIR), 2)`* | *Average score*
+
+* Trust
+
+    Survey question: Generally speaking, would you say that most people can be trusted or that you can't be too careful in dealing with people?
+
+Value  | Label
+-------|-----------
+   1   | Can't be too careful
+   2   | Depends
+   3   | Most people can be trusted
+ *`r round(mean(mygss$TRUST), 2)`* | *Average score*
+
+***
+
+## Analyses
+
+In this project, I ask the following questions: 1) How has generalized social trust in the U.S. changed during the four decades? 2) Does social trust vary by gender, age, education, and racial groups? 3) If so, how have these group differences changed with time? 4) How do gender, age, education, and race affect social trust?
+
+**1) Trend of social trust**
+
+* Generalized social trust
+
+```{r, eval=TRUE, echo=FALSE, fig.width=6, fig.height=4.5}
+year.socialtrust <- mygss %>%
+  group_by(YEAR) %>%
+  summarize(mean.socialtrust= mean(SOCIAL.TRUST))
+
+ggplot(year.socialtrust, aes(x=YEAR, y=mean.socialtrust))+geom_line(color="red2", size=1.5)+theme_minimal()+labs(title="Fig.1 Generalized Social Trust, 1972-2012", y="Average Score", x="Year")+geom_text(data=subset(year.socialtrust, mean.socialtrust<1.9215 | mean.socialtrust>2.1427), aes(YEAR, mean.socialtrust, label=YEAR))+theme(axis.title.y = element_text(angle=0))
+```
+
+* Helpful, Fair, and Trust items
+
+```{r, eval=TRUE, echo=FALSE, fig.width=7.2, fig.height=4.5}
+socialtrust.measures <- mygss %>%
+  melt(measure.vars = 2:4) %>%
+  group_by(variable, YEAR) %>%
+  summarize(mean.measures = mean(value))
+
+ggplot(socialtrust.measures, aes(x=YEAR, y=mean.measures, group=variable))+geom_line(aes(color=variable), size=1)+theme_minimal()+scale_color_manual(values=c("forestgreen", "darkblue", "firebrick2"), name="Variable")+labs(title="Fig.2 Generalized Social Trust Variables, 1972-2012", y="Average Score", x="Year")+theme(axis.title.y=element_text(angle=0))
+```
+
+> According to Figure 1, social trust in the U.S. has declined during the past four decades and reached another low level in recent years. Broken down by three component variables, though perceived helpfulness remained on average stable, the overall decrease of social trust has been driven by both fairness and trustworthiness.
+
+**2) Demographic differences in social trust**
+
+* Age
+    + correlation test
+```{r, eval=TRUE, echo=FALSE}
+cor_pval <- function(v1, v2) {
+  cor_test <- cor.test(v1, v2, alternative=c("two.sided"), method=c("pearson"))
+  cor <- cor_test$estimate
+  pval <- cor_test$p.value
+  if (pval < .05 & cor > 0) { output <- paste("r is =", round(cor, 4), "p < .05, positive correlation!") } else if (pval < .05 & cor < 0) { output <- paste("r is =", round(cor, 4), "p < .05, negative correlation!") }
+  else { output <- paste("r is =", round(cor, 4), "p is =", round(pval, 4), "no significant correlations") }
+  output }
+
+cor_pval(mygss$AGE, mygss$SOCIAL.TRUST)
+```
+
+* Gender
+    + men is coded "1" and women "2"
+    + t-test
+```{r, eval=TRUE, echo=FALSE}
+test.results <- t.test(SOCIAL.TRUST ~ SEX, data = mygss)
+pval <- test.results$p.value
+if (pval < .05) { output <- paste("p < .05, significant result!") } else { output <- paste("p is =", round(pval, 4), "no significant differences") }
+output
+```
+
+* Race
+    + white is coded "1", black "2", and other races "3"
+    + anova test
+```{r, eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
+aov.results <- aov(SOCIAL.TRUST ~ RACE, data = mygss)
+pval.2 <- summary(aov.results)[[1]][["Pr(>F)"]]
+if (pval.2 < .05) { output.2 <- paste("p < .05, significant result!") } else { output.2 <- paste("p is =", round(pval, 4), "no significant differences") }
+output.2
+```
+
+* Education
+    + using self-reported educational years
+    + correlation test
+```{r, eval=TRUE, echo=FALSE}
+cor_pval(mygss$EDUC, mygss$SOCIAL.TRUST)
+```
+
+> In short, participants who report higher social trust are more likely to be female, older, white, and have more education.
+
+**3) Trend of social trust by demographics**
+
+* Age
+
+```{r, eval=TRUE, echo=FALSE, fig.width=7.2, fig.height=4.5}
+age.socialtrust <- mygss %>%
+  group_by(AGECAT, YEAR) %>%
+  summarize(means = mean(SOCIAL.TRUST))
+
+ggplot(age.socialtrust, aes(x=YEAR, y=means, group=AGECAT))+geom_line(aes(color=AGECAT), size=1)+theme_minimal()+scale_color_manual(values=c("darkmagenta", "#d95f02", "#1b9e77"), name="Age Group")+labs(title="Fig.3 Generalized Social Trust by Age Groups, 1972-2012", y="Average Score", x="Year")+theme(axis.title.y=element_text(angle=0))
+```
+
+> The young generations have always had the lowest social trust among three age groups and seem to have reached a bottom low in the past dacade. While scores of the two younger age groups gradually decline, the seniors show slowly rising social trust.
+
+* Gender
+
+```{r, eval=TRUE, echo=FALSE, fig.width=7.3, fig.height=4.5}
+sex.socialtrust <- mygss %>%
+  group_by(SEX, YEAR) %>%
+  summarize(means = mean(SOCIAL.TRUST))
+
+ggplot(sex.socialtrust, aes(x=YEAR, y=means, group=as.factor(SEX)))+geom_line(aes(color=as.factor(SEX)), size=1)+theme_minimal()+scale_color_manual(values=c("navy", "limegreen"), name="Gender", labels=c("Men", "Women"))+labs(title="Fig.4 Generalized Social Trust by Gender, 1972-2012", y="Average Score", x="Year")+theme(axis.title.y=element_text(angle=0))
+```
+
+> Though both showing a decreasing trend, women in general perceive higher social trust than men.
+
+* Race
+
+```{r, eval=TRUE, echo=FALSE, fig.width=7.3, fig.height=4.5}
+race.socialtrust <- mygss %>%
+  group_by(RACE, YEAR) %>%
+  summarize(means = mean(SOCIAL.TRUST))
+
+ggplot(race.socialtrust, aes(x=YEAR, y=means, group=as.factor(RACE)))+geom_line(aes(color=as.factor(RACE)), size=1)+theme_minimal()+scale_color_manual(values=c("seagreen3", "#fc8d62", "mediumslateblue"), name="Race", labels=c("White", "Black", "Other"))+labs(title="Fig.5 Generalized Social Trust by Race, 1972-2012", y="Average Score", x="Year")+theme(axis.title.y=element_text(angle=0))
+```
+
+> On average, perceived social trust has stayed stable for Whites and Blacks with the latter displaying the least trust. What's interesting is other races have demonstrated a dramatic decrease over the four decades from scoring the highest to converging with Blacks at the bottom.
+
+* Education
+
+```{r, eval=TRUE, echo=FALSE, fig.width=9, fig.height=4.5}
+educ.socialtrust <- mygss %>%
+  group_by(DEGREE, YEAR) %>%
+  summarize(means = mean(SOCIAL.TRUST))
+
+ggplot(educ.socialtrust, aes(x=YEAR, y=means, group=as.factor(DEGREE)))+geom_line(aes(color=as.factor(DEGREE)), size=1)+theme_minimal()+scale_color_manual(values=c("#984ea3", "#377eb8", "#ff7f00", "#e41a1c", "#4daf4a"), name="Degree", labels=c("Less than high school", "High school", "Some college", "Bachelor's", "Post-graduate"))+labs(title="Fig.6 Generalized Social Trust by Degree, 1972-2012", y="Average Score", x="Year")+theme(axis.title.y=element_text(angle=0))
+```
+
+> Compared to the two highest education groups, participants who finished some college or below show a clearer decrease of social trust.
+
+**4) Demographic effects on social trust**
+
+```{r, eval=TRUE, echo=FALSE}
+reg.test <- lm(SOCIAL.TRUST ~ AGE + SEX + RACE + EDUC + MARITAL + YEAR, data = mygss)
+# summary(reg.test)
+stargazer(reg.test, type="text", title="Table1: Regression Coefficients Estimating Demographic Effects on Generalized Social Trust", dep.var.labels="Social Trust Scale", covariate.labels=c("Age", "Female", "Non-White", "Educational years", "Marital Status", "Year"), omit.stat=c("f", "ser"))
+
+reg.rel <- calc.relimp(reg.test, type = "lmg", rela = TRUE)
+# print(reg.rel)
+# str(reg.rel)
+matrix(round(reg.rel$lmg, 4), nrow=6, ncol=1, dimnames=list(c("Age","Female","Non-White","Educational years","Marital Status","Year"),"Table2: Relative Importance (Sum to 100%)"))
+```
+
+> As Table 1 shows, controling for cohort effect and marital status, age, gender, race, and education all have significant impact on social trust. As significance tests indicated earlier, older ages, being female, being white, and more educations all contribute to higher social trust.  
+The second table displays percentage of relative importance of each predictor. Among all the four variables discussed, years of education weighs the most.
